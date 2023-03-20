@@ -1,0 +1,33 @@
+{
+  "name": "shp-to-sld-generator",
+  "version": "1.0.0",
+  "description": "A simple SLD styles generator basing on the SHP input",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Total-Site/shp-to-sld-generator.git"
+  },
+  "author": "Dorian Krefft <dorian.krefft@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Total-Site/shp-to-sld-generator/issues"
+  },
+  "homepage": "https://github.com/Total-Site/shp-to-sld-generator#readme",
+  "dependencies": {
+    "geojson": "^0.5.0",
+    "shapefile": "^0.6.6",
+    "xml": "^1.0.1",
+    "geostyler-sld-parser": "^5.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.2",
+    "@types/shapefile": "^0.6.1",
+    "@types/geojson": "^7946.0.10",
+    "@types/xml": "^1.0.8"
+  }
+}
