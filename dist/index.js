@@ -2,26 +2,19 @@ import * as Shapefile from 'shapefile';
 import * as SLDParser from 'geostyler-sld-parser';
 import { StyleGeneratorService } from './style-generator.service';
 import { defaultColorMapping } from './default-color-mapping';
+import { ShapefileParsingError, ShapefileReadError, StyleWritingError } from './errors';
 export class ShpToSldStyleGenerator {
     /**
      * A standard way to initialize the class.
-     * @param stylerParams Optional parameters for the SLD parser.
+     * @param config Optional parameters for the generator.
      */
-    constructor(stylerParams) {
+    constructor(config) {
         this.combinations = {};
-        this.parser = new SLDParser.SldStyleParser({
-            ...(stylerParams || {})
-        });
+        this.config = {
+            colorMapping: defaultColorMapping
+        };
+        this.parser = new SLDParser.SldStyleParser(config?.stylerParams);
         this.styleService = new StyleGeneratorService();
-        this.colorMapping = defaultColorMapping;
-    }
-    /**
-     * By default, the library has generated HEX colors for every autodesk palette color.
-     * You can overwrite it by specifying it by yourself.
-     * @param colorMapping Mapping for color (represented as a string) + value (HEX representation of a color)
-     */
-    setColorMapping(colorMapping) {
-        this.colorMapping = colorMapping;
     }
     /**
      * Loads a .shp file and generates a style for shapefile definition found in that style.
@@ -38,17 +31,26 @@ export class ShpToSldStyleGenerator {
             style.rules = rules;
             return style;
         })
-            .then(() => this.parser.writeStyle(style));
+            .then(() => this.parser.writeStyle(style))
+            .catch((error) => {
+            throw new StyleWritingError(error);
+        });
     }
     async getRulesFromShp(shpFile) {
         return Shapefile.open(shpFile)
-            .then((source) => source.read().then((result) => this.processFeature([], source, result)));
+            .catch((error) => {
+            throw new ShapefileReadError(error);
+        })
+            .then((source) => source.read().then((result) => this.processFeature([], source, result)))
+            .catch((error) => {
+            throw new ShapefileParsingError(error);
+        });
     }
     processFeature(rules, source, result) {
         if (result.done)
             return Promise.resolve(rules);
-        const rule = this.styleService.convertFeatureToRule(result.value, this.colorMapping);
-        if (!this.combinations[rule.name]) {
+        const rule = this.styleService.convertFeatureToRule(result.value, this.config);
+        if (rule && !this.combinations[rule.name]) {
             rules.push(rule);
             this.combinations[rule.name] = true;
         }

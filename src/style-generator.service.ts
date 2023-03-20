@@ -1,24 +1,28 @@
 import { Feature } from 'geojson';
 import { Filter, Rule, Symbolizer } from 'geostyler-style/dist/style';
+import { ShpToSldGeneratorConfig } from './shp-to-sld-generator.config';
 
 export class StyleGeneratorService {
-  public convertFeatureToRule(feature: Feature, colorMapping: { [name: string]: string }): Rule {
+  public convertFeatureToRule(feature: Feature, config: ShpToSldGeneratorConfig): Rule | null {
     const color = feature.properties?.COLOR;
     const lineType = feature.properties?.LINETYPE;
+    if (!color || !lineType) {
+      return null;
+    }
     const name = `${color}${this.getShortFeatureType(lineType)}`;
     return {
       name: name,
       filter: this.getFiltersForRole(color, lineType),
       scaleDenominator: {},
-      symbolizers: this.getLineSymbolizers(lineType, color, colorMapping)
+      symbolizers: this.getLineSymbolizers(lineType, color, config)
     };
   }
 
-  private getLineSymbolizers(lineType: string, color: string, colorMapping: { [name: string]: string }): Symbolizer[] {
+  private getLineSymbolizers(lineType: string, color: string, config: ShpToSldGeneratorConfig): Symbolizer[] {
     const baseParams: Symbolizer = {
       kind: 'Line',
       width: 1,
-      color: colorMapping[color.toString()] || '#000000',
+      color: config.colorMapping![color?.toString()] || '#000000',
       join: 'bevel',
       cap: 'square'
     };

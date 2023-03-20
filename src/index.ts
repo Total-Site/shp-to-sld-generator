@@ -4,35 +4,28 @@ import { Feature } from 'geojson';
 import * as SLDParser from 'geostyler-sld-parser';
 import { Style, WriteStyleResult } from 'geostyler-style';
 import { Rule } from 'geostyler-style/dist/style';
-import { ConstructorParams as StylerParams } from 'geostyler-sld-parser';
 import { StyleGeneratorService } from './style-generator.service';
 import { defaultColorMapping } from './default-color-mapping';
+import { ShpToSldGeneratorConfig } from './shp-to-sld-generator.config';
+import { ShapefileParsingError, ShapefileReadError, StyleWritingError } from './errors';
+
 
 export class ShpToSldStyleGenerator {
   private combinations: any = {};
   private parser: SLDParser.SldStyleParser;
   private styleService: StyleGeneratorService;
-  private colorMapping: { [name: string]: string };
+  private readonly config: ShpToSldGeneratorConfig;
 
   /**
    * A standard way to initialize the class.
-   * @param stylerParams Optional parameters for the SLD parser.
+   * @param config Optional parameters for the generator.
    */
-  constructor(stylerParams?: StylerParams) {
-    this.parser = new SLDParser.SldStyleParser({
-      ...(stylerParams || {})
-    });
+  constructor(config?: ShpToSldGeneratorConfig) {
+    this.config = {
+      colorMapping: defaultColorMapping
+    };
+    this.parser = new SLDParser.SldStyleParser(config?.stylerParams);
     this.styleService = new StyleGeneratorService();
-    this.colorMapping = defaultColorMapping;
-  }
-
-  /**
-   * By default, the library has generated HEX colors for every autodesk palette color.
-   * You can overwrite it by specifying it by yourself.
-   * @param colorMapping Mapping for color (represented as a string) + value (HEX representation of a color)
-   */
-  public setColorMapping(colorMapping: { [name: string]: string }) {
-    this.colorMapping = colorMapping;
   }
 
   /**
@@ -50,21 +43,29 @@ export class ShpToSldStyleGenerator {
         style.rules = rules;
         return style;
       })
-      .then(() => this.parser.writeStyle(style));
+      .then(() => this.parser.writeStyle(style))
+      .catch((error) => {
+        throw new StyleWritingError(error);
+      });
   }
-
 
   private async getRulesFromShp(shpFile: string) {
     return Shapefile.open(shpFile)
+      .catch((error) => {
+        throw new ShapefileReadError(error);
+      })
       .then((source: Source<Feature>) => source.read().then(
         (result: { done: boolean, value: Feature }) => this.processFeature([], source, result))
-      );
+      )
+      .catch((error) => {
+        throw new ShapefileParsingError(error);
+      });
   }
 
   private processFeature(rules: Rule[], source: Source<Feature>, result: { done: boolean, value: Feature }): Promise<Rule[]> {
     if (result.done) return Promise.resolve(rules);
-    const rule = this.styleService.convertFeatureToRule(result.value, this.colorMapping);
-    if (!this.combinations[rule.name]) {
+    const rule = this.styleService.convertFeatureToRule(result.value, this.config);
+    if (rule && !this.combinations[rule.name]) {
       rules.push(rule);
       this.combinations[rule.name] = true;
     }

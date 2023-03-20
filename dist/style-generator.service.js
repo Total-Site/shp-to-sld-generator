@@ -1,20 +1,23 @@
 export class StyleGeneratorService {
-    convertFeatureToRule(feature, colorMapping) {
+    convertFeatureToRule(feature, config) {
         const color = feature.properties?.COLOR;
         const lineType = feature.properties?.LINETYPE;
+        if (!color || !lineType) {
+            return null;
+        }
         const name = `${color}${this.getShortFeatureType(lineType)}`;
         return {
             name: name,
             filter: this.getFiltersForRole(color, lineType),
             scaleDenominator: {},
-            symbolizers: this.getLineSymbolizers(lineType, color, colorMapping)
+            symbolizers: this.getLineSymbolizers(lineType, color, config)
         };
     }
-    getLineSymbolizers(lineType, color, colorMapping) {
+    getLineSymbolizers(lineType, color, config) {
         const baseParams = {
             kind: 'Line',
             width: 1,
-            color: colorMapping[color.toString()] || '#000000',
+            color: config.colorMapping[color?.toString()] || '#000000',
             join: 'bevel',
             cap: 'square'
         };
