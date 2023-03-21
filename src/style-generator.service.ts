@@ -5,8 +5,8 @@ import { ShpToSldGeneratorConfig } from './shp-to-sld-generator.config';
 export class StyleGeneratorService {
   public convertFeatureToRule(feature: Feature, config: ShpToSldGeneratorConfig): Rule | null {
     const color = feature.properties?.COLOR;
-    const lineType = feature.properties?.LINETYPE;
-    if (!color || !lineType) {
+    const lineType = feature.properties?.LINETYPE || feature?.geometry?.type;
+    if (!color) {
       return null;
     }
     const name = `${color}${this.getShortFeatureType(lineType)}`;
@@ -34,6 +34,9 @@ export class StyleGeneratorService {
           ...baseParams,
           dasharray: [8, 4]
         }];
+      case 'LineString':
+      case 'MultiLineString':
+        return [baseParams];
       default:
         return [{
           ...baseParams,
@@ -52,6 +55,9 @@ export class StyleGeneratorService {
         return [
           '&&', ['==', 'COLOR', color], ['==', 'LINETYPE', 'Dashed']
         ];
+      case 'LineString':
+      case 'MultiLineString':
+        return ['==', 'COLOR', color];
       default:
         return [
           '&&', ['==', 'COLOR', color], ['&&', ['!=', 'LINETYPE', 'Continuous'], ['!=', 'LINETYPE', 'Dashed']]
@@ -61,6 +67,8 @@ export class StyleGeneratorService {
 
   private getShortFeatureType(lineType: string): string {
     switch (lineType) {
+      case 'LineString':
+      case 'MultiLineString':
       case 'CONTINUOUS':
         return 'c';
       case 'DASHED':
