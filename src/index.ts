@@ -8,7 +8,8 @@ import { StyleGeneratorService } from './style-generator.service';
 import { defaultColorMapping } from './default-color-mapping';
 import { ShpToSldGeneratorConfig } from './shp-to-sld-generator.config';
 import { ShapefileParsingError, ShapefileReadError, StyleWritingError } from './errors';
-
+import { EnrichedSldStyleParser } from './enriched-sld-style-parser';
+import deepmerge from 'deepmerge';
 
 export class ShpToSldStyleGenerator {
   private combinations: any = {};
@@ -21,11 +22,16 @@ export class ShpToSldStyleGenerator {
    * @param config Optional parameters for the generator.
    */
   constructor(config?: ShpToSldGeneratorConfig) {
-    this.config = {
-      colorMapping: defaultColorMapping
-    };
-    this.parser = new SLDParser.SldStyleParser(config?.stylerParams);
     this.styleService = new StyleGeneratorService();
+
+    this.config = deepmerge({
+      colorMapping: defaultColorMapping,
+      stylerParams: {
+        sldVersion: '1.1.0'
+      }
+    }, config || {});
+
+    this.parser = new EnrichedSldStyleParser(this.config.stylerParams);
   }
 
   /**
@@ -34,16 +40,14 @@ export class ShpToSldStyleGenerator {
    * @param shpFile Path to the local .shp file containing the shapefile definition
    */
   public async generateFromShpFile(styleName: string, shpFile: string): Promise<WriteStyleResult<string>> {
-    const style: Style = {
-      rules: [],
-      name: styleName
-    };
     return this.getRulesFromShp(shpFile)
       .then((rules: Rule[]) => {
-        style.rules = rules;
-        return style;
+        return {
+          rules,
+          name: styleName
+        };
       })
-      .then(() => this.parser.writeStyle(style))
+      .then((style: Style) => this.parser.writeStyle(style))
       .catch((error) => {
         throw new StyleWritingError(error);
       });

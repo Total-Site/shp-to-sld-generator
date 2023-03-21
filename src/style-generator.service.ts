@@ -45,13 +45,16 @@ export class StyleGeneratorService {
   private getFiltersForRole(color: string, lineType: string): Filter {
     switch (lineType) {
       case 'CONTINUOUS':
+        return [
+          '&&', ['==', 'COLOR', color], ['==', 'LINETYPE', 'Continuous']
+        ];
       case 'DASHED':
         return [
-          '&&', ['==', 'COLOR', color], ['==', 'LINETYPE', lineType]
+          '&&', ['==', 'COLOR', color], ['==', 'LINETYPE', 'Dashed']
         ];
       default:
         return [
-          '&&', ['==', 'COLOR', color], ['&&', ['!=', 'LINETYPE', 'CONTINUOUS'], ['!=', 'LINETYPE', 'DASHED']]
+          '&&', ['==', 'COLOR', color], ['&&', ['!=', 'LINETYPE', 'Continuous'], ['!=', 'LINETYPE', 'Dashed']]
         ];
     }
   }

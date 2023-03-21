@@ -6,7 +6,7 @@ const generator = new ShpToSldStyleGenerator({
   stylerParams: {
     builderOptions: {
       format: true,
-      indentBy: ' '
+      indentBy: ' ',
     }
   }
 });
@@ -15,8 +15,8 @@ glob('tests/data/**/*.shp').then((files) => {
   files.forEach(file => {
     const fullPath = path.resolve(file);
     console.log(`Parsing the file ${fullPath}...`);
-    generator.generateFromShpFile(file, fullPath).then((result) => {
-      console.log(result);
+    generator.generateFromShpFile('test_name', fullPath).then((result) => {
+      console.log(result.output);
     });
   });
 })
