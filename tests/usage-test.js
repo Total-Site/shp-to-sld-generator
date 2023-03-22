@@ -9,7 +9,8 @@ const generator = new ShpToSldStyleGenerator({
       format: true,
       indentBy: ' ',
     }
-  }
+  },
+  fixGeoserverNamespacesValidation: true
 });
 
 const resultsDir = 'tests/data/results';

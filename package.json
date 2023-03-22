@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --experimental-specifier-resolution=node tests/usage-test.js"
+    "test": "npm run build && node --experimental-specifier-resolution=node tests/usage-test.js > a.txt"
   },
   "type": "module",
   "repository": {

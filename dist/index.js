@@ -1,24 +1,27 @@
 import * as Shapefile from 'shapefile';
-import { StyleGeneratorService } from './style-generator.service';
-import { defaultColorMapping } from './default-color-mapping';
-import { ShapefileParsingError, ShapefileReadError, StyleWritingError } from './errors';
-import { EnrichedSldStyleParser } from './enriched-sld-style-parser';
+import * as SLDParser from 'geostyler-sld-parser';
+import { defaultColorMapping } from './model/default-color-mapping';
+import { ShapefileParsingError, ShapefileReadError, StyleWritingError } from './model/errors';
+import { EnrichedSldStyleParser } from './helpers/enriched-sld-style-parser';
 import deepmerge from 'deepmerge';
+import { FeatureMetadata } from './feature/feature-metadata';
+import { FeaturesRegistry } from './feature/features-registry';
 export class ShpToSldStyleGenerator {
     /**
      * A standard way to initialize the class.
      * @param config Optional parameters for the generator.
      */
     constructor(config) {
-        this.combinations = {};
-        this.styleService = new StyleGeneratorService();
         this.config = deepmerge({
             colorMapping: defaultColorMapping,
             stylerParams: {
                 sldVersion: '1.1.0'
-            }
+            },
+            fixGeoserverNamespacesValidation: true
         }, config || {});
-        this.parser = new EnrichedSldStyleParser(this.config.stylerParams);
+        this.parser = this.config.fixGeoserverNamespacesValidation
+            ? new EnrichedSldStyleParser(this.config.stylerParams)
+            : new SLDParser.SldStyleParser(this.config.stylerParams);
     }
     /**
      * Loads a .shp file and generates a style for shapefile definition found in that style.
@@ -26,7 +29,9 @@ export class ShpToSldStyleGenerator {
      * @param shpFile Path to the local .shp file containing the shapefile definition
      */
     async generateFromShpFile(styleName, shpFile) {
-        return this.getRulesFromShp(shpFile)
+        const registry = new FeaturesRegistry();
+        return this.getRulesFromShp(shpFile, registry)
+            .then(() => registry.getFeatureRules(this.config))
             .then((rules) => {
             return {
                 rules,
@@ -38,24 +43,23 @@ export class ShpToSldStyleGenerator {
             throw new StyleWritingError(error);
         });
     }
-    async getRulesFromShp(shpFile) {
+    async getRulesFromShp(shpFile, registry) {
         return Shapefile.open(shpFile)
             .catch((error) => {
             throw new ShapefileReadError(error);
         })
-            .then((source) => source.read().then((result) => this.processFeature([], source, result)))
+            .then((source) => source.read().then((result) => this.processFeature(registry, source, result)))
             .catch((error) => {
             throw new ShapefileParsingError(error);
         });
     }
-    processFeature(rules, source, result) {
+    processFeature(registry, source, result) {
         if (result.done)
-            return Promise.resolve(rules);
-        const rule = this.styleService.convertFeatureToRule(result.value, this.config);
-        if (rule && !this.combinations[rule.name]) {
-            rules.push(rule);
-            this.combinations[rule.name] = true;
+            return Promise.resolve();
+        const featureMetadata = new FeatureMetadata(result.value);
+        if (featureMetadata) {
+            registry.addFeature(featureMetadata);
         }
-        return source.read().then((result) => this.processFeature(rules, source, result));
+        return source.read().then((result) => this.processFeature(registry, source, result));
     }
 }

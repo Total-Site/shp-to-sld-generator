@@ -1,9 +1,7 @@
 import { WriteStyleResult } from 'geostyler-style';
-import { ShpToSldGeneratorConfig } from './shp-to-sld-generator.config';
+import { ShpToSldGeneratorConfig } from './model/shp-to-sld-generator.config';
 export declare class ShpToSldStyleGenerator {
-    private combinations;
     private parser;
-    private styleService;
     private readonly config;
     /**
      * A standard way to initialize the class.

@@ -11,4 +11,8 @@ export interface ShpToSldGeneratorConfig {
    * You can overwrite it by specifying it by yourself.
    */
   colorMapping?: { [name: string]: string }
+  /**
+   * If set to true, the application will try to fix issues with Geoserver namespaces validation
+   */
+  fixGeoserverNamespacesValidation: boolean;
 }

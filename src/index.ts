@@ -4,17 +4,16 @@ import { Feature } from 'geojson';
 import * as SLDParser from 'geostyler-sld-parser';
 import { Style, WriteStyleResult } from 'geostyler-style';
 import { Rule } from 'geostyler-style/dist/style';
-import { StyleGeneratorService } from './style-generator.service';
-import { defaultColorMapping } from './default-color-mapping';
-import { ShpToSldGeneratorConfig } from './shp-to-sld-generator.config';
-import { ShapefileParsingError, ShapefileReadError, StyleWritingError } from './errors';
-import { EnrichedSldStyleParser } from './enriched-sld-style-parser';
+import { defaultColorMapping } from './model/default-color-mapping';
+import { ShpToSldGeneratorConfig } from './model/shp-to-sld-generator.config';
+import { ShapefileParsingError, ShapefileReadError, StyleWritingError } from './model/errors';
+import { EnrichedSldStyleParser } from './helpers/enriched-sld-style-parser';
 import deepmerge from 'deepmerge';
+import { FeatureMetadata } from './feature/feature-metadata';
+import { FeaturesRegistry } from './feature/features-registry';
 
 export class ShpToSldStyleGenerator {
-  private combinations: any = {};
   private parser: SLDParser.SldStyleParser;
-  private styleService: StyleGeneratorService;
   private readonly config: ShpToSldGeneratorConfig;
 
   /**
@@ -22,16 +21,17 @@ export class ShpToSldStyleGenerator {
    * @param config Optional parameters for the generator.
    */
   constructor(config?: ShpToSldGeneratorConfig) {
-    this.styleService = new StyleGeneratorService();
-
     this.config = deepmerge({
       colorMapping: defaultColorMapping,
       stylerParams: {
         sldVersion: '1.1.0'
-      }
+      },
+      fixGeoserverNamespacesValidation: true
     }, config || {});
 
-    this.parser = new EnrichedSldStyleParser(this.config.stylerParams);
+    this.parser = this.config.fixGeoserverNamespacesValidation
+      ? new EnrichedSldStyleParser(this.config.stylerParams)
+      : new SLDParser.SldStyleParser(this.config.stylerParams);
   }
 
   /**
@@ -40,7 +40,9 @@ export class ShpToSldStyleGenerator {
    * @param shpFile Path to the local .shp file containing the shapefile definition
    */
   public async generateFromShpFile(styleName: string, shpFile: string): Promise<WriteStyleResult<string>> {
-    return this.getRulesFromShp(shpFile)
+    const registry = new FeaturesRegistry();
+    return this.getRulesFromShp(shpFile, registry)
+      .then(() => registry.getFeatureRules(this.config))
       .then((rules: Rule[]) => {
         return {
           rules,
@@ -53,26 +55,25 @@ export class ShpToSldStyleGenerator {
       });
   }
 
-  private async getRulesFromShp(shpFile: string) {
+  private async getRulesFromShp(shpFile: string, registry: FeaturesRegistry) {
     return Shapefile.open(shpFile)
       .catch((error) => {
         throw new ShapefileReadError(error);
       })
       .then((source: Source<Feature>) => source.read().then(
-        (result: { done: boolean, value: Feature }) => this.processFeature([], source, result))
+        (result: { done: boolean, value: Feature }) => this.processFeature(registry, source, result))
       )
       .catch((error) => {
         throw new ShapefileParsingError(error);
       });
   }
 
-  private processFeature(rules: Rule[], source: Source<Feature>, result: { done: boolean, value: Feature }): Promise<Rule[]> {
-    if (result.done) return Promise.resolve(rules);
-    const rule = this.styleService.convertFeatureToRule(result.value, this.config);
-    if (rule && !this.combinations[rule.name]) {
-      rules.push(rule);
-      this.combinations[rule.name] = true;
+  private processFeature(registry: FeaturesRegistry, source: Source<Feature>, result: { done: boolean, value: Feature }): Promise<void> {
+    if (result.done) return Promise.resolve();
+    const featureMetadata = new FeatureMetadata(result.value);
+    if (featureMetadata) {
+      registry.addFeature(featureMetadata);
     }
-    return source.read().then((result: { done: boolean, value: Feature }) => this.processFeature(rules, source, result));
+    return source.read().then((result: { done: boolean, value: Feature }) => this.processFeature(registry, source, result));
   }
 }
